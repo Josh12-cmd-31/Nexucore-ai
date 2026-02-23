@@ -30,7 +30,7 @@ interface FileData {
 const MODES = [
   { id: 'general', name: 'General', icon: Brain, color: 'text-zinc-400' },
   { id: 'creative', name: 'Creative', icon: PenTool, color: 'text-purple-400' },
-  { id: 'image', name: 'Image Gen', icon: ImageIcon, color: 'text-pink-400' },
+  { id: 'image', name: 'Image Gen', icon: ImageIcon, color: 'text-pink-400', beta: true },
   { id: 'analysis', name: 'Analysis', icon: FileText, color: 'text-blue-400' },
   { id: 'marketing', name: 'Marketing', icon: Megaphone, color: 'text-orange-400' },
   { id: 'academic', name: 'Academic', icon: BookOpen, color: 'text-emerald-400' },
@@ -350,14 +350,21 @@ export default function ChatInterface() {
                 <button
                   key={mode.id}
                   onClick={() => setActiveMode(mode.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group ${
                     activeMode === mode.id 
                     ? 'bg-zinc-800/50 text-white shadow-sm' 
                     : 'text-zinc-500 hover:bg-zinc-800/30 hover:text-zinc-300'
                   }`}
                 >
-                  <mode.icon className={`w-4 h-4 ${activeMode === mode.id ? mode.color : 'group-hover:text-zinc-300'}`} />
-                  <span className="text-sm font-medium">{mode.name}</span>
+                  <div className="flex items-center gap-3">
+                    <mode.icon className={`w-4 h-4 ${activeMode === mode.id ? mode.color : 'group-hover:text-zinc-300'}`} />
+                    <span className="text-sm font-medium">{mode.name}</span>
+                  </div>
+                  {mode.id === 'image' && (
+                    <span className="text-[8px] font-bold uppercase tracking-tighter bg-pink-500/10 text-pink-500 px-1.5 py-0.5 rounded border border-pink-500/20">
+                      Beta
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -520,13 +527,64 @@ export default function ChatInterface() {
           </AnimatePresence>
           {isLoading && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
               className="flex justify-start"
             >
-              <div className="bg-zinc-900 border border-zinc-800/50 p-4 rounded-2xl flex items-center gap-3">
-                <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />
-                <span className="text-sm text-zinc-400 font-medium">NexuCore is processing...</span>
+              <div className={`max-w-[85%] md:max-w-[70%] p-6 rounded-3xl border backdrop-blur-sm shadow-2xl transition-all duration-500 ${
+                intent === 'image' || activeMode === 'image'
+                ? 'bg-pink-500/5 border-pink-500/20 shadow-pink-500/5'
+                : 'bg-zinc-900/50 border-zinc-800/50 shadow-black/40'
+              }`}>
+                <div className="flex items-center gap-6">
+                  <div className="relative">
+                    <div className={`absolute inset-0 blur-lg animate-pulse rounded-full ${
+                      intent === 'image' || activeMode === 'image' ? 'bg-pink-500/20' : 'bg-emerald-500/20'
+                    }`} />
+                    <div className={`relative w-12 h-12 rounded-2xl flex items-center justify-center border animate-bounce ${
+                      intent === 'image' || activeMode === 'image' 
+                      ? 'bg-pink-500/10 border-pink-500/20 text-pink-500' 
+                      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+                    }`}>
+                      {intent === 'image' || activeMode === 'image' ? (
+                        <ImageIcon className="w-6 h-6" />
+                      ) : (
+                        <Brain className="w-6 h-6" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold tracking-tight ${
+                        intent === 'image' || activeMode === 'image' ? 'text-pink-400' : 'text-emerald-400'
+                      }`}>
+                        {intent === 'image' || activeMode === 'image' ? 'Synthesizing Visuals' : 'Processing Intelligence'}
+                      </span>
+                      <div className="flex gap-1">
+                        <motion.div 
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1.5, repeat: Infinity, delay: 0 }}
+                          className={`w-1 h-1 rounded-full ${intent === 'image' || activeMode === 'image' ? 'bg-pink-500' : 'bg-emerald-500'}`}
+                        />
+                        <motion.div 
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+                          className={`w-1 h-1 rounded-full ${intent === 'image' || activeMode === 'image' ? 'bg-pink-500' : 'bg-emerald-500'}`}
+                        />
+                        <motion.div 
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+                          className={`w-1 h-1 rounded-full ${intent === 'image' || activeMode === 'image' ? 'bg-pink-500' : 'bg-emerald-500'}`}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-zinc-500 font-medium">
+                      {intent === 'image' || activeMode === 'image' 
+                        ? "NexuCore is rendering your visual request..." 
+                        : "Analyzing neural patterns and generating response..."}
+                    </p>
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
@@ -535,6 +593,23 @@ export default function ChatInterface() {
         {/* Input Area */}
         <div className="p-6 bg-gradient-to-t from-[#0A0A0A] to-transparent">
           <div className="max-w-4xl mx-auto">
+            {/* Image Mode Alert */}
+            <AnimatePresence>
+              {(activeMode === 'image' || intent === 'image') && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="mb-4 p-2 bg-pink-500/5 border border-pink-500/20 rounded-xl flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-3 h-3 text-pink-500" />
+                  <span className="text-[10px] font-medium text-pink-400 uppercase tracking-wider">
+                    Image Generation is currently under development
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* File Previews */}
             <AnimatePresence>
               {attachedFiles.length > 0 && (
