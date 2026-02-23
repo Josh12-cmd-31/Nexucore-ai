@@ -59,9 +59,16 @@ export async function generateNexuCoreResponse(
     marketing: "FOCUS: Marketing Strategy Expert Mode. Think like a CMO/Growth Strategist. Provide positioning, frameworks, and actionable growth tactics.",
     academic: "FOCUS: Academic & Teaching Mode. Explain concepts progressively, use examples, and provide study strategies.",
     scientific: "FOCUS: Medical & Scientific Research Assistant Mode. Stay evidence-based, discuss mechanisms conceptually, and suggest ethical research pathways. VISUALIZATION: You can generate D3.js compatible data. If you want to visualize data (e.g., trends, correlations, structures), include a JSON block starting with ```json-d3 and containing { \"type\": \"bar\" | \"line\" | \"scatter\" | \"pie\", \"data\": [...], \"options\": {...} }.",
-    image: "FOCUS: Visual Synthesis & Image Generation. You are an expert at generating and editing images. If the user asks to generate an image, describe it vividly and the system will produce it. If they provide an image and ask for edits, explain the changes and the system will generate the updated version.",
+    image: "FOCUS: Visual Synthesis & Image Generation. You are an expert at generating and editing images. MANDATORY: You MUST generate an image part (inlineData) in your response whenever the user asks for an image. If they provide an image and ask for edits, you MUST generate the updated version as an image part. Do not just describe the image, actually generate it.",
     general: ""
   }[mode as keyof typeof modeInstructions] || "";
+
+  const isImageMode = mode === 'image';
+  const model = isImageMode ? "gemini-2.5-flash-image" : "gemini-2.5-flash";
+
+  const userText = isImageMode 
+    ? `${NEXUCORE_SYSTEM_INSTRUCTION}\n\nGenerate an image based on this description: ${message}`
+    : `[PERSONA: ${persona.toUpperCase()}] ${personaInstruction}\n\n[MODE: ${mode.toUpperCase()}] ${modeInstructions}\n\n${message}`;
 
   const contents = [
     ...history.map(h => ({ role: h.role, parts: h.parts })),
@@ -69,20 +76,39 @@ export async function generateNexuCoreResponse(
       role: 'user',
       parts: [
         ...files.map(f => ({ inlineData: f })),
-        { text: `[PERSONA: ${persona.toUpperCase()}] ${personaInstruction}\n\n[MODE: ${mode.toUpperCase()}] ${modeInstructions}\n\n${message}` }
+        { text: userText }
       ]
     }
   ];
 
-  const model = mode === 'image' ? "gemini-2.5-flash-image" : "gemini-2.5-flash";
+  const config: any = {};
+  if (!isImageMode) {
+    config.systemInstruction = NEXUCORE_SYSTEM_INSTRUCTION;
+  }
 
-  const response = await ai.models.generateContent({
-    model: model,
-    contents: contents as any,
-    config: {
-      systemInstruction: NEXUCORE_SYSTEM_INSTRUCTION,
-    },
-  });
+  if (isImageMode) {
+    config.imageConfig = {
+      aspectRatio: "1:1",
+    };
+  }
 
-  return response;
+  try {
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: contents as any,
+      config: config,
+    });
+    return response;
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+    if (isImageMode) {
+      // Fallback to gemini-2.5-flash if image model fails
+      return await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: contents as any,
+        config: { systemInstruction: NEXUCORE_SYSTEM_INSTRUCTION },
+      });
+    }
+    throw error;
+  }
 }
