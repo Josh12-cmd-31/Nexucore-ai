@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, X, FileText, Image as ImageIcon, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2 } from 'lucide-react';
+import { Send, Paperclip, X, FileText, Image as ImageIcon, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateNexuCoreResponse } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
@@ -47,6 +47,7 @@ export default function ChatInterface() {
   const [attachedFiles, setAttachedFiles] = useState<FileData[]>([]);
   const [activeMode, setActiveMode] = useState('general');
   const [persona, setPersona] = useState<'user' | 'developer'>('user');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,6 +90,7 @@ export default function ChatInterface() {
     ]);
     setActiveMode('general');
     setPersona('user');
+    setIsSidebarOpen(false);
   };
 
   const loadConversation = (id: string) => {
@@ -98,6 +100,7 @@ export default function ChatInterface() {
       setMessages(conv.messages);
       setActiveMode(conv.mode);
       setPersona(conv.persona);
+      setIsSidebarOpen(false);
     }
   };
 
@@ -244,9 +247,24 @@ export default function ChatInterface() {
   };
 
   return (
-    <div className="flex h-screen bg-[#0A0A0A] text-zinc-100 font-sans overflow-hidden">
+    <div className="flex h-screen bg-[#0A0A0A] text-zinc-100 font-sans overflow-hidden relative">
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
-      <aside className="w-64 border-r border-zinc-800/50 bg-[#0D0D0D] flex flex-col hidden md:flex">
+      <aside className={`fixed md:relative w-64 h-full border-r border-zinc-800/50 bg-[#0D0D0D] flex flex-col z-50 transition-transform duration-300 md:translate-x-0 ${
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
         <div className="p-6 border-b border-zinc-800/50">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
@@ -336,6 +354,12 @@ export default function ChatInterface() {
         {/* Header */}
         <header className="h-16 border-b border-zinc-800/50 flex items-center justify-between px-6 bg-[#0A0A0A]/80 backdrop-blur-md z-10">
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden p-2 -ml-2 text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-sm font-medium text-zinc-400">System Online</span>
@@ -369,7 +393,15 @@ export default function ChatInterface() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest">v2.5.0-flash</span>
+            <button
+              onClick={createNewChat}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-emerald-500 hover:border-emerald-500/50 transition-all text-xs font-medium"
+              title="New Chat"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">New Chat</span>
+            </button>
+            <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest hidden md:inline">v2.5.0-flash</span>
           </div>
         </header>
 
