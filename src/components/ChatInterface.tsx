@@ -360,12 +360,6 @@ export default function ChatInterface() {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-sm font-medium text-zinc-400">System Online</span>
-            </div>
-            
-            <div className="h-4 w-[1px] bg-zinc-800" />
             
             <div className="flex bg-zinc-900 rounded-lg p-1 border border-zinc-800">
               <button
@@ -553,7 +547,13 @@ export default function ChatInterface() {
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={persona === 'developer' ? "Request technical analysis or code..." : "Ask NexuCore anything..."}
+                  placeholder={
+                    persona === 'developer' 
+                      ? "Request technical analysis or code..." 
+                      : activeMode === 'creative'
+                      ? "Enter a title for a song or poem..."
+                      : "Ask NexuCore anything..."
+                  }
                   className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-3 placeholder:text-zinc-600"
                 />
                 <button

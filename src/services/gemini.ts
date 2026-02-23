@@ -53,7 +53,7 @@ export async function generateNexuCoreResponse(
     : "ACCESS LEVEL: USER. Prioritize clarity, creativity, and strategic value. Focus on actionable outcomes and user-friendly explanations.";
 
   const modeInstructions = {
-    creative: "FOCUS: Creative Intelligence Engine. Prioritize original storytelling, songwriting, or scriptwriting with professional formatting.",
+    creative: "FOCUS: Creative Intelligence Engine. Prioritize original storytelling, songwriting, or scriptwriting with professional formatting. If the user provides only a title or a short theme, automatically expand it into a full-length song (with verses, chorus, bridge) or a detailed poem without further prompting.",
     analysis: "FOCUS: File Analysis & Document Intelligence. Prioritize deep extraction of insights, risk assessment, and strategic recommendations from provided data.",
     marketing: "FOCUS: Marketing Strategy Expert Mode. Think like a CMO/Growth Strategist. Provide positioning, frameworks, and actionable growth tactics.",
     academic: "FOCUS: Academic & Teaching Mode. Explain concepts progressively, use examples, and provide study strategies.",
