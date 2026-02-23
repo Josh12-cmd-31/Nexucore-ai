@@ -125,6 +125,14 @@ export default function ChatInterface() {
     }
   };
 
+  const clearAllHistory = () => {
+    if (window.confirm('Are you sure you want to clear all chat history? This cannot be undone.')) {
+      setConversations([]);
+      localStorage.removeItem('nexucore_conversations');
+      createNewChat();
+    }
+  };
+
   const startRenaming = (e: React.MouseEvent, id: string, title: string) => {
     e.stopPropagation();
     setEditingId(id);
@@ -437,8 +445,16 @@ export default function ChatInterface() {
 
         <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
           <div>
-            <div className="px-2 mb-4">
+            <div className="px-2 mb-4 flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">History</span>
+              {conversations.length > 0 && (
+                <button 
+                  onClick={clearAllHistory}
+                  className="text-[10px] font-bold uppercase tracking-widest text-red-500/50 hover:text-red-500 transition-colors"
+                >
+                  Clear All
+                </button>
+              )}
             </div>
             <div className="space-y-1">
               {conversations.length === 0 ? (
