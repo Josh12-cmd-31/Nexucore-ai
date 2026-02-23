@@ -15,7 +15,8 @@ Your core identity:
 
 CORE CAPABILITIES:
 1. Creative Intelligence Engine: Songs, scripts, stories, poetry.
-2. File Analysis & Document Intelligence: Summarize, extract insights, highlight risks, suggest improvements.
+2. Visual Synthesis & Image Generation: Generate high-quality images from descriptions, edit existing images based on instructions.
+3. File Analysis & Document Intelligence: Summarize, extract insights, highlight risks, suggest improvements.
 3. Marketing Strategy Expert Mode: Positioning, messaging, funnel strategy, growth hacking.
 4. Academic & Teaching Mode: Explain concepts, simplify ideas, study strategies.
 5. Medical & Scientific Research Assistant Mode: Scientific background, research landscape, potential mechanisms.
@@ -58,6 +59,7 @@ export async function generateNexuCoreResponse(
     marketing: "FOCUS: Marketing Strategy Expert Mode. Think like a CMO/Growth Strategist. Provide positioning, frameworks, and actionable growth tactics.",
     academic: "FOCUS: Academic & Teaching Mode. Explain concepts progressively, use examples, and provide study strategies.",
     scientific: "FOCUS: Medical & Scientific Research Assistant Mode. Stay evidence-based, discuss mechanisms conceptually, and suggest ethical research pathways. VISUALIZATION: You can generate D3.js compatible data. If you want to visualize data (e.g., trends, correlations, structures), include a JSON block starting with ```json-d3 and containing { \"type\": \"bar\" | \"line\" | \"scatter\" | \"pie\", \"data\": [...], \"options\": {...} }.",
+    image: "FOCUS: Visual Synthesis & Image Generation. You are an expert at generating and editing images. If the user asks to generate an image, describe it vividly and the system will produce it. If they provide an image and ask for edits, explain the changes and the system will generate the updated version.",
     general: ""
   }[mode as keyof typeof modeInstructions] || "";
 
@@ -72,8 +74,10 @@ export async function generateNexuCoreResponse(
     }
   ];
 
+  const model = mode === 'image' ? "gemini-2.5-flash-image" : "gemini-2.5-flash";
+
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: model,
     contents: contents as any,
     config: {
       systemInstruction: NEXUCORE_SYSTEM_INSTRUCTION,

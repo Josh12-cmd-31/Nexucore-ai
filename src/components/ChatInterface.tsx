@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, X, FileText, Image as ImageIcon, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2, Menu } from 'lucide-react';
+import { Send, Paperclip, X, FileText, Image as ImageIcon, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2, Menu, Download, Wand2, Type as TypeIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateNexuCoreResponse } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
@@ -30,6 +30,7 @@ interface FileData {
 const MODES = [
   { id: 'general', name: 'General', icon: Brain, color: 'text-zinc-400' },
   { id: 'creative', name: 'Creative', icon: PenTool, color: 'text-purple-400' },
+  { id: 'image', name: 'Image Gen', icon: ImageIcon, color: 'text-pink-400' },
   { id: 'analysis', name: 'Analysis', icon: FileText, color: 'text-blue-400' },
   { id: 'marketing', name: 'Marketing', icon: Megaphone, color: 'text-orange-400' },
   { id: 'academic', name: 'Academic', icon: BookOpen, color: 'text-emerald-400' },
@@ -48,6 +49,7 @@ export default function ChatInterface() {
   const [activeMode, setActiveMode] = useState('general');
   const [persona, setPersona] = useState<'user' | 'developer'>('user');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [intent, setIntent] = useState<'text' | 'image'>('text');
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -185,11 +187,33 @@ export default function ChatInterface() {
 
       setAttachedFiles([]);
       
-      const response = await generateNexuCoreResponse(input, history, filesForApi, activeMode, persona);
+      // Use intent if it's set to image, otherwise use activeMode
+      const effectiveMode = intent === 'image' ? 'image' : activeMode;
+      const response = await generateNexuCoreResponse(input, history, filesForApi, effectiveMode, persona);
       
+      const responseText = response.text || "";
+      const responseFiles: { name: string; type: string; url: string }[] = [];
+
+      // Extract images from response parts
+      if (response.candidates?.[0]?.content?.parts) {
+        response.candidates[0].content.parts.forEach((part, index) => {
+          if (part.inlineData) {
+            const base64 = part.inlineData.data;
+            const mimeType = part.inlineData.mimeType;
+            const url = `data:${mimeType};base64,${base64}`;
+            responseFiles.push({
+              name: `generated-image-${index}.png`,
+              type: mimeType,
+              url: url
+            });
+          }
+        });
+      }
+
       setMessages(prev => [...prev, {
         role: 'model',
-        text: response.text || "I'm sorry, I couldn't generate a response."
+        text: responseText || (responseFiles.length > 0 ? "" : "I'm sorry, I couldn't generate a response."),
+        files: responseFiles.length > 0 ? responseFiles : undefined
       }]);
     } catch (error) {
       console.error(error);
@@ -424,13 +448,37 @@ export default function ChatInterface() {
                   {msg.files && msg.files.length > 0 && (
                     <div className={`flex flex-wrap gap-2 mb-2 ${messages.length === 1 ? 'justify-center' : ''}`}>
                       {msg.files.map((file, fi) => (
-                        <div key={fi} className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center gap-2">
+                        <div key={fi} className={`${
+                          msg.role === 'model' && file.type.startsWith('image/') 
+                          ? 'w-full' 
+                          : 'p-2 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center gap-2'
+                        }`}>
                           {file.type.startsWith('image/') ? (
-                            <img src={file.url} className="w-10 h-10 rounded object-cover" alt="" />
+                            <div className={msg.role === 'model' ? 'space-y-2' : 'flex items-center gap-2'}>
+                              <img 
+                                src={file.url} 
+                                className={`${msg.role === 'model' ? 'w-full h-auto rounded-2xl shadow-2xl border border-zinc-800' : 'w-10 h-10 rounded object-cover'}`} 
+                                alt="" 
+                              />
+                              {msg.role === 'model' && (
+                                <div className="flex justify-end">
+                                  <a 
+                                    href={file.url} 
+                                    download={file.name}
+                                    className="text-[10px] text-zinc-500 hover:text-emerald-500 flex items-center gap-1 transition-colors"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                    Download
+                                  </a>
+                                </div>
+                              )}
+                            </div>
                           ) : (
-                            <FileText className="w-5 h-5 text-zinc-500" />
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-5 h-5 text-zinc-500" />
+                              <span className="text-xs text-zinc-400 truncate max-w-[100px]">{file.name}</span>
+                            </div>
                           )}
-                          <span className="text-xs text-zinc-400 truncate max-w-[100px]">{file.name}</span>
                         </div>
                       ))}
                     </div>
@@ -491,28 +539,39 @@ export default function ChatInterface() {
             <AnimatePresence>
               {attachedFiles.length > 0 && (
                 <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="flex flex-wrap gap-2 mb-4 p-3 bg-zinc-900/50 rounded-2xl border border-zinc-800/50"
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                  className="flex flex-wrap gap-3 mb-4 p-4 bg-zinc-900/40 backdrop-blur-md rounded-2xl border border-zinc-800/50 shadow-2xl"
                 >
                   {attachedFiles.map((file, i) => (
-                    <div key={i} className="relative group">
-                      <div className="p-2 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center gap-2 pr-8">
-                        {file.type.startsWith('image/') ? (
-                          <img src={file.url} className="w-8 h-8 rounded object-cover" alt="" />
-                        ) : (
-                          <FileText className="w-4 h-4 text-zinc-400" />
-                        )}
-                        <span className="text-xs text-zinc-300 truncate max-w-[120px]">{file.name}</span>
+                    <motion.div 
+                      key={i}
+                      layout
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="relative group"
+                    >
+                      <div className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center gap-3 pr-10 shadow-lg group-hover:border-emerald-500/30 transition-all">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-zinc-800 flex items-center justify-center border border-zinc-700">
+                          {file.type.startsWith('image/') ? (
+                            <img src={file.url} className="w-full h-full object-cover" alt="" />
+                          ) : (
+                            <FileText className="w-5 h-5 text-zinc-500" />
+                          )}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-medium text-zinc-200 truncate max-w-[120px]">{file.name}</span>
+                          <span className="text-[10px] text-zinc-500 uppercase tracking-tighter">{file.type.split('/')[1] || 'file'}</span>
+                        </div>
                       </div>
                       <button 
                         onClick={() => removeFile(i)}
-                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-zinc-700 text-white flex items-center justify-center hover:bg-red-500 transition-colors"
+                        className="absolute top-1 right-1 w-6 h-6 rounded-lg bg-zinc-800 text-zinc-400 flex items-center justify-center hover:bg-red-500/20 hover:text-red-400 transition-all border border-zinc-700 group-hover:border-red-500/30"
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
-                    </div>
+                    </motion.div>
                   ))}
                 </motion.div>
               )}
@@ -528,6 +587,16 @@ export default function ChatInterface() {
               <div className={`relative flex items-center gap-2 bg-zinc-900/80 backdrop-blur-xl border border-zinc-800 p-2 pl-4 rounded-2xl shadow-2xl transition-all duration-300 ${
                 persona === 'developer' ? 'group-focus-within:border-indigo-500/30' : 'group-focus-within:border-emerald-500/30'
               }`}>
+                <button
+                  type="button"
+                  onClick={() => setIntent(prev => prev === 'text' ? 'image' : 'text')}
+                  className={`p-2 transition-all rounded-xl hover:bg-zinc-800 flex items-center gap-2 ${
+                    intent === 'image' ? 'text-pink-500 bg-pink-500/10' : 'text-zinc-500'
+                  }`}
+                  title={intent === 'image' ? "Switch to Text Mode" : "Switch to Image Mode"}
+                >
+                  {intent === 'image' ? <Wand2 className="w-5 h-5" /> : <TypeIcon className="w-5 h-5" />}
+                </button>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -550,6 +619,8 @@ export default function ChatInterface() {
                   placeholder={
                     persona === 'developer' 
                       ? "Request technical analysis or code..." 
+                      : intent === 'image'
+                      ? "Describe an image to generate or edit..."
                       : activeMode === 'creative'
                       ? "Enter a title for a song or poem..."
                       : "Ask NexuCore anything..."
