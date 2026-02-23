@@ -42,13 +42,16 @@ export async function generateNexuCoreResponse(
   files: { mimeType: string; data: string }[] = [],
   mode: string = 'general',
   persona: 'user' | 'developer' = 'user',
-  imageConfig?: { aspectRatio?: string }
+  imageConfig?: { aspectRatio?: string },
+  customSystemInstruction?: string
 ) {
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not set.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
+  
+  const baseSystemInstruction = customSystemInstruction || NEXUCORE_SYSTEM_INSTRUCTION;
   
   const personaInstruction = persona === 'developer' 
     ? `ACCESS LEVEL: DEVELOPER. Prioritize technical precision, code quality, architectural integrity, and system efficiency. 
@@ -90,7 +93,7 @@ export async function generateNexuCoreResponse(
 
   const config: any = {};
   if (!isImageMode) {
-    config.systemInstruction = NEXUCORE_SYSTEM_INSTRUCTION;
+    config.systemInstruction = baseSystemInstruction;
   }
 
   if (isImageMode) {

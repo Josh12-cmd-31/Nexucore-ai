@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, X, FileText, Image as ImageIcon, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2, Menu, Download, Wand2, Type as TypeIcon, Globe, Palette, Layout, Monitor, Eye, Edit2, Check } from 'lucide-react';
+import { Send, Paperclip, X, FileText, Image as ImageIcon, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2, Menu, Download, Wand2, Type as TypeIcon, Globe, Palette, Layout, Monitor, Eye, Edit2, Check, Code, Maximize2, Minimize2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateNexuCoreResponse } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
@@ -56,6 +56,11 @@ export default function ChatInterface() {
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  
+  const [isStudioMode, setIsStudioMode] = useState(false);
+  const [studioCode, setStudioCode] = useState('');
+  const [studioView, setStudioView] = useState<'preview' | 'code'>('preview');
+  const [systemInstruction, setSystemInstruction] = useState('You are an expert UI/UX Engineer. Create clean, modern, and responsive designs using HTML and Tailwind CSS.');
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -213,17 +218,35 @@ export default function ChatInterface() {
       
       // Use intent if it's set to image, otherwise use activeMode
       const effectiveMode = intent === 'image' ? 'image' : activeMode;
+      
+      // If in studio mode, provide the current code as context
+      const studioContext = isStudioMode && studioCode 
+        ? `\n\nCURRENT STUDIO CODE:\n\`\`\`html\n${studioCode}\n\`\`\`\n\nPlease refer to this code when making changes.`
+        : "";
+      
+      const customSystemInstruction = isStudioMode ? systemInstruction : undefined;
+
       const response = await generateNexuCoreResponse(
-        input, 
+        input + studioContext, 
         history, 
         filesForApi, 
         effectiveMode, 
         persona,
-        effectiveMode === 'image' ? { aspectRatio } : undefined
+        effectiveMode === 'image' ? { aspectRatio } : undefined,
+        customSystemInstruction
       );
       
       const responseText = response.text || "";
       const responseFiles: { name: string; type: string; url: string }[] = [];
+
+      // Auto-update studio code if in studio mode and AI returns new code
+      if (isStudioMode && responseText.includes('```html-preview')) {
+        const matches = [...responseText.matchAll(/```html-preview\n([\s\S]*?)\n```/g)];
+        if (matches.length > 0) {
+          // Take the last match as it's likely the most updated version
+          setStudioCode(matches[matches.length - 1][1]);
+        }
+      }
 
       // Extract images from response parts
       if (response.candidates?.[0]?.content?.parts) {
@@ -292,13 +315,24 @@ export default function ChatInterface() {
         index: match.index,
         content: (
           <div key={`html-${match.index}`} className="relative group my-4">
-            <div className="absolute top-4 right-4 z-10">
+            <div className="absolute top-4 right-4 z-10 flex gap-2">
               <button
-                onClick={() => setPreviewHtml(htmlCode)}
+                onClick={() => {
+                  setStudioCode(htmlCode);
+                  setIsStudioMode(true);
+                  setStudioView('preview');
+                }}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold shadow-lg hover:bg-indigo-500 transition-all"
               >
+                <Code className="w-3 h-3" />
+                Open in Studio
+              </button>
+              <button
+                onClick={() => setPreviewHtml(htmlCode)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-800 text-white text-xs font-bold shadow-lg hover:bg-zinc-700 transition-all border border-zinc-700"
+              >
                 <Eye className="w-3 h-3" />
-                Live Preview
+                Quick View
               </button>
             </div>
             <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 font-mono text-xs overflow-x-auto text-zinc-400">
@@ -503,6 +537,13 @@ export default function ChatInterface() {
               </div>
               <div className="grid grid-cols-1 gap-2">
                 <button 
+                  onClick={() => setIsStudioMode(true)}
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-400 hover:bg-indigo-500/10 hover:text-indigo-400 transition-all text-xs font-medium border border-transparent hover:border-indigo-500/20"
+                >
+                  <Code className="w-4 h-4" />
+                  Open Studio
+                </button>
+                <button 
                   onClick={() => { setInput("Design a modern web application for..."); setIntent('text'); setPersona('developer'); }}
                   className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-400 hover:bg-indigo-500/10 hover:text-indigo-400 transition-all text-xs font-medium border border-transparent hover:border-indigo-500/20"
                 >
@@ -601,14 +642,30 @@ export default function ChatInterface() {
               <span className="hidden sm:inline">New Chat</span>
             </button>
             <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest hidden md:inline">v2.5.0-flash</span>
+            {persona === 'developer' && (
+              <button
+                onClick={() => setIsStudioMode(!isStudioMode)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold ${
+                  isStudioMode 
+                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20' 
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-indigo-400 hover:border-indigo-500/50'
+                }`}
+              >
+                <Layout className="w-4 h-4" />
+                Studio
+              </button>
+            )}
           </div>
         </header>
 
-        {/* Messages */}
-        <div 
-          ref={scrollRef}
-          className={`flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth flex flex-col ${messages.length === 1 ? 'justify-center' : ''}`}
-        >
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Messages & Input Container */}
+          <div className={`flex flex-col transition-all duration-500 ${isStudioMode ? 'w-1/2 border-r border-zinc-800' : 'w-full'}`}>
+            {/* Messages */}
+            <div 
+              ref={scrollRef}
+              className={`flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth flex flex-col ${messages.length === 1 ? 'justify-center' : ''}`}
+            >
           <AnimatePresence initial={false}>
             {messages.map((msg, i) => (
               <motion.div
@@ -921,6 +978,174 @@ export default function ChatInterface() {
               Secure Neural Link Established • End-to-End Encryption Active
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Studio Panel */}
+          <AnimatePresence>
+            {isStudioMode && (
+              <motion.div 
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="w-1/2 flex flex-col bg-[#0D0D0D] border-l border-zinc-800 z-20"
+              >
+                {/* Studio Header */}
+                <div className="h-12 border-b border-zinc-800 flex items-center justify-between px-4 bg-zinc-900/50">
+                  <div className="flex items-center gap-4">
+                    <div className="flex bg-zinc-950 rounded-lg p-1 border border-zinc-800">
+                      <button
+                        onClick={() => setStudioView('preview')}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                          studioView === 'preview' 
+                            ? 'bg-indigo-600 text-white' 
+                            : 'text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        Preview
+                      </button>
+                      <button
+                        onClick={() => setStudioView('code')}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                          studioView === 'code' 
+                            ? 'bg-indigo-600 text-white' 
+                            : 'text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        Code
+                      </button>
+                    </div>
+                    <div className="h-4 w-px bg-zinc-800 mx-1" />
+                    <button 
+                      onClick={() => setInput("Please review and optimize the current studio code.")}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-500/20 transition-all"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Optimize
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => {
+                        const blob = new Blob([studioCode], { type: 'text/html' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'nexucore-design.html';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-500 hover:text-white transition-all"
+                      title="Download HTML"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => setStudioCode('')}
+                      className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-500 hover:text-white transition-all"
+                      title="Clear Code"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => setIsStudioMode(false)}
+                      className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-500 hover:text-white transition-all"
+                      title="Close Studio"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Studio Layout: Sidebar + Main */}
+                <div className="flex-1 flex overflow-hidden">
+                  {/* Studio Left Sidebar: System Instructions */}
+                  <div className="w-64 border-r border-zinc-800 flex flex-col bg-zinc-950/50">
+                    <div className="p-4 border-b border-zinc-800">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">System Instructions</span>
+                    </div>
+                    <div className="flex-1 p-4">
+                      <textarea
+                        value={systemInstruction}
+                        onChange={(e) => setSystemInstruction(e.target.value)}
+                        className="w-full h-full bg-transparent text-zinc-400 text-xs leading-relaxed focus:outline-none resize-none placeholder:text-zinc-700"
+                        placeholder="Enter system instructions for the AI..."
+                      />
+                    </div>
+                    <div className="p-4 border-t border-zinc-800 space-y-4">
+                      <div>
+                        <div className="flex justify-between mb-2">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Temperature</span>
+                          <span className="text-[10px] font-mono text-indigo-400">0.7</span>
+                        </div>
+                        <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-500 w-[70%]" />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between mb-2">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Top P</span>
+                          <span className="text-[10px] font-mono text-indigo-400">0.95</span>
+                        </div>
+                        <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-500 w-[95%]" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Studio Main Content */}
+                  <div className="flex-1 overflow-hidden relative flex flex-col">
+                    <div className="flex-1 overflow-hidden">
+                      {studioView === 'code' ? (
+                        <textarea
+                          value={studioCode}
+                          onChange={(e) => setStudioCode(e.target.value)}
+                          className="w-full h-full bg-zinc-950 text-zinc-300 font-mono text-xs p-6 focus:outline-none resize-none selection:bg-indigo-500/30"
+                          spellCheck={false}
+                          placeholder="Enter HTML and Tailwind CSS code here..."
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-white">
+                          {studioCode ? (
+                            <iframe
+                              srcDoc={`
+                                <!DOCTYPE html>
+                                <html>
+                                  <head>
+                                    <script src="https://cdn.tailwindcss.com"></script>
+                                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+                                    <style>
+                                      body { font-family: 'Inter', sans-serif; }
+                                      ::-webkit-scrollbar { width: 8px; }
+                                      ::-webkit-scrollbar-track { background: #f1f1f1; }
+                                      ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+                                      ::-webkit-scrollbar-thumb:hover { background: #555; }
+                                    </style>
+                                  </head>
+                                  <body class="bg-gray-50 min-h-screen">
+                                    ${studioCode}
+                                  </body>
+                                </html>
+                              `}
+                              className="w-full h-full border-none"
+                              title="Studio Preview"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900 text-zinc-500 gap-4">
+                              <Monitor className="w-12 h-12 opacity-20" />
+                              <p className="text-sm font-medium">No code to preview. Ask NexuCore to generate something!</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </main>
 
