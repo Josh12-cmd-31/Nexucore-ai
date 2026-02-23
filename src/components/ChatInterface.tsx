@@ -244,7 +244,7 @@ export default function ChatInterface() {
         {/* Messages */}
         <div 
           ref={scrollRef}
-          className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth"
+          className={`flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth flex flex-col ${messages.length === 1 ? 'justify-center' : ''}`}
         >
           <AnimatePresence initial={false}>
             {messages.map((msg, i) => (
@@ -252,11 +252,19 @@ export default function ChatInterface() {
                 key={i}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${
+                  msg.role === 'user' 
+                    ? 'justify-end' 
+                    : (messages.length === 1 ? 'justify-center' : 'justify-start')
+                }`}
               >
-                <div className={`max-w-[85%] md:max-w-[70%] space-y-2`}>
+                <div className={`${
+                  messages.length === 1 && msg.role === 'model' 
+                    ? 'max-w-2xl text-center space-y-6' 
+                    : 'max-w-[85%] md:max-w-[70%] space-y-2'
+                }`}>
                   {msg.files && msg.files.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-2">
+                    <div className={`flex flex-wrap gap-2 mb-2 ${messages.length === 1 ? 'justify-center' : ''}`}>
                       {msg.files.map((file, fi) => (
                         <div key={fi} className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center gap-2">
                           {file.type.startsWith('image/') ? (
@@ -269,15 +277,34 @@ export default function ChatInterface() {
                       ))}
                     </div>
                   )}
+                  
+                  {messages.length === 1 && msg.role === 'model' && (
+                    <motion.div 
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.2 }}
+                      className="w-20 h-20 rounded-3xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 mx-auto mb-8 shadow-2xl shadow-emerald-500/10"
+                    >
+                      <Sparkles className="w-10 h-10 text-emerald-500" />
+                    </motion.div>
+                  )}
+
                   <div className={`p-4 rounded-2xl ${
                     msg.role === 'user' 
                     ? (persona === 'developer' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20')
-                    : 'bg-zinc-900 border border-zinc-800/50 text-zinc-200'
+                    : (messages.length === 1 
+                        ? 'bg-transparent border-none text-zinc-100 text-3xl font-bold tracking-tight' 
+                        : 'bg-zinc-900 border border-zinc-800/50 text-zinc-200')
                   }`}>
                     {renderMessageContent(msg.text)}
                   </div>
-                  <div className={`flex items-center gap-2 px-1 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-tighter">
+                  
+                  <div className={`flex items-center gap-2 px-1 ${
+                    msg.role === 'user' || messages.length === 1 ? 'justify-center' : 'justify-start'
+                  } ${messages.length === 1 ? 'mt-4' : ''}`}>
+                    <span className={`text-[10px] font-mono uppercase tracking-tighter ${
+                      messages.length === 1 ? 'text-zinc-500' : 'text-zinc-600'
+                    }`}>
                       {msg.role === 'user' ? (persona === 'developer' ? 'Dev Access' : 'Authorized User') : 'NexuCore AI'}
                     </span>
                   </div>
