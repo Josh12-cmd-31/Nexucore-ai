@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, X, FileText, Image as ImageIcon, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2, Menu, Download, Wand2, Type as TypeIcon } from 'lucide-react';
+import { Send, Paperclip, X, FileText, Image as ImageIcon, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2, Menu, Download, Wand2, Type as TypeIcon, Globe, Palette, Layout, Monitor, Eye, Edit2, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateNexuCoreResponse } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
@@ -31,6 +31,7 @@ const MODES = [
   { id: 'general', name: 'General', icon: Brain, color: 'text-zinc-400' },
   { id: 'creative', name: 'Creative', icon: PenTool, color: 'text-purple-400' },
   { id: 'image', name: 'Image Gen', icon: ImageIcon, color: 'text-pink-400', beta: true },
+  { id: 'ui', name: 'UI Sandbox', icon: Monitor, color: 'text-indigo-400' },
   { id: 'analysis', name: 'Analysis', icon: FileText, color: 'text-blue-400' },
   { id: 'marketing', name: 'Marketing', icon: Megaphone, color: 'text-orange-400' },
   { id: 'academic', name: 'Academic', icon: BookOpen, color: 'text-emerald-400' },
@@ -50,6 +51,11 @@ export default function ChatInterface() {
   const [persona, setPersona] = useState<'user' | 'developer'>('user');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [intent, setIntent] = useState<'text' | 'image'>('text');
+  const [aspectRatio, setAspectRatio] = useState('1:1');
+  
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -112,6 +118,24 @@ export default function ChatInterface() {
     if (currentConversationId === id) {
       createNewChat();
     }
+  };
+
+  const startRenaming = (e: React.MouseEvent, id: string, title: string) => {
+    e.stopPropagation();
+    setEditingId(id);
+    setEditTitle(title);
+  };
+
+  const saveRename = (e: React.MouseEvent | React.KeyboardEvent, id: string) => {
+    e.stopPropagation();
+    if (!editTitle.trim()) {
+      setEditingId(null);
+      return;
+    }
+    setConversations(prev => prev.map(c => 
+      c.id === id ? { ...c, title: editTitle.trim() } : c
+    ));
+    setEditingId(null);
   };
 
   useEffect(() => {
@@ -189,7 +213,14 @@ export default function ChatInterface() {
       
       // Use intent if it's set to image, otherwise use activeMode
       const effectiveMode = intent === 'image' ? 'image' : activeMode;
-      const response = await generateNexuCoreResponse(input, history, filesForApi, effectiveMode, persona);
+      const response = await generateNexuCoreResponse(
+        input, 
+        history, 
+        filesForApi, 
+        effectiveMode, 
+        persona,
+        effectiveMode === 'image' ? { aspectRatio } : undefined
+      );
       
       const responseText = response.text || "";
       const responseFiles: { name: string; type: string; url: string }[] = [];
@@ -228,34 +259,83 @@ export default function ChatInterface() {
 
   const renderMessageContent = (text: string) => {
     const d3Regex = /```json-d3\n([\s\S]*?)\n```/g;
-    const parts = [];
-    let lastIndex = 0;
+    const htmlRegex = /```html-preview\n([\s\S]*?)\n```/g;
+    
+    const elements: { index: number; content: React.ReactNode }[] = [];
+    
+    // Process D3 matches
     let match;
-
     while ((match = d3Regex.exec(text)) !== null) {
-      // Add text before the match
-      if (match.index > lastIndex) {
-        parts.push(
-          <div key={`text-${lastIndex}`} className="markdown-body prose prose-invert prose-sm max-w-none">
-            <ReactMarkdown>{text.substring(lastIndex, match.index)}</ReactMarkdown>
-          </div>
-        );
-      }
-
-      // Add the visualization
       try {
         const config = JSON.parse(match[1]);
-        parts.push(<D3Visualizer key={`d3-${match.index}`} config={config} />);
+        elements.push({
+          index: match.index,
+          content: <D3Visualizer key={`d3-${match.index}`} config={config} />
+        });
       } catch (e) {
-        console.error('Failed to parse D3 config', e);
+        elements.push({
+          index: match.index,
+          content: (
+            <div key={`error-d3-${match.index}`} className="text-red-400 text-xs p-2 bg-red-900/20 rounded-lg border border-red-800/50 my-2">
+              Failed to render visualization: Invalid JSON
+            </div>
+          )
+        });
+      }
+    }
+
+    // Process HTML Preview matches
+    htmlRegex.lastIndex = 0;
+    while ((match = htmlRegex.exec(text)) !== null) {
+      const htmlCode = match[1];
+      elements.push({
+        index: match.index,
+        content: (
+          <div key={`html-${match.index}`} className="relative group my-4">
+            <div className="absolute top-4 right-4 z-10">
+              <button
+                onClick={() => setPreviewHtml(htmlCode)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold shadow-lg hover:bg-indigo-500 transition-all"
+              >
+                <Eye className="w-3 h-3" />
+                Live Preview
+              </button>
+            </div>
+            <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 font-mono text-xs overflow-x-auto text-zinc-400">
+              <pre><code>{htmlCode.trim()}</code></pre>
+            </div>
+          </div>
+        )
+      });
+    }
+
+    // Sort elements by index
+    elements.sort((a, b) => a.index - b.index);
+
+    const parts = [];
+    let lastIndex = 0;
+
+    for (const el of elements) {
+      // Add text before the element
+      if (el.index > lastIndex) {
         parts.push(
-          <div key={`error-${match.index}`} className="text-red-400 text-xs p-2 bg-red-900/20 rounded-lg border border-red-800/50 my-2">
-            Failed to render visualization: Invalid JSON
+          <div key={`text-${lastIndex}`} className="markdown-body prose prose-invert prose-sm max-w-none">
+            <ReactMarkdown>{text.substring(lastIndex, el.index)}</ReactMarkdown>
           </div>
         );
       }
-
-      lastIndex = d3Regex.lastIndex;
+      parts.push(el.content);
+      
+      // Find the end of the match to update lastIndex
+      // We need to know which regex matched to find the length
+      const d3Match = text.substring(el.index).match(/```json-d3\n[\s\S]*?\n```/);
+      const htmlMatch = text.substring(el.index).match(/```html-preview\n[\s\S]*?\n```/);
+      
+      if (d3Match && text.indexOf(d3Match[0], el.index) === el.index) {
+        lastIndex = el.index + d3Match[0].length;
+      } else if (htmlMatch && text.indexOf(htmlMatch[0], el.index) === el.index) {
+        lastIndex = el.index + htmlMatch[0].length;
+      }
     }
 
     // Add remaining text
@@ -291,10 +371,23 @@ export default function ChatInterface() {
       }`}>
         <div className="p-6 border-b border-zinc-800/50">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-              <Sparkles className="w-5 h-5 text-emerald-500" />
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors duration-500 ${
+              persona === 'developer' 
+                ? 'bg-indigo-500/10 border-indigo-500/20' 
+                : 'bg-emerald-500/10 border-emerald-500/20'
+            }`}>
+              <Sparkles className={`w-5 h-5 transition-colors duration-500 ${
+                persona === 'developer' ? 'text-indigo-500' : 'text-emerald-500'
+              }`} />
             </div>
-            <h1 className="font-bold text-lg tracking-tight">NexuCore <span className="text-emerald-500">AI</span></h1>
+            <div className="flex flex-col">
+              <h1 className="font-bold text-lg tracking-tight leading-none">NexuCore <span className={persona === 'developer' ? 'text-indigo-500' : 'text-emerald-500'}>AI</span></h1>
+              <span className={`text-[8px] font-bold uppercase tracking-[0.2em] mt-1 ${
+                persona === 'developer' ? 'text-indigo-400' : 'text-emerald-400'
+              }`}>
+                {persona === 'developer' ? 'Developer Engine' : 'Strategic Intelligence'}
+              </span>
+            </div>
           </div>
         </div>
         
@@ -328,13 +421,42 @@ export default function ChatInterface() {
                     }`}
                   >
                     <MessageSquare className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-xs font-medium truncate flex-1">{conv.title}</span>
-                    <button
-                      onClick={(e) => deleteConversation(e, conv.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    {editingId === conv.id ? (
+                      <div className="flex items-center gap-1 flex-1 min-w-0">
+                        <input
+                          autoFocus
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && saveRename(e, conv.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="bg-zinc-900 text-white text-xs px-1.5 py-0.5 rounded border border-emerald-500/50 w-full focus:outline-none"
+                        />
+                        <button
+                          onClick={(e) => saveRename(e, conv.id)}
+                          className="p-1 text-emerald-500 hover:text-emerald-400"
+                        >
+                          <Check className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-xs font-medium truncate flex-1">{conv.title}</span>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                          <button
+                            onClick={(e) => startRenaming(e, conv.id, conv.title)}
+                            className="p-1 hover:text-emerald-400 transition-all"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => deleteConversation(e, conv.id)}
+                            className="p-1 hover:text-red-400 transition-all"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))
               )}
@@ -369,19 +491,67 @@ export default function ChatInterface() {
               ))}
             </div>
           </div>
+
+          {persona === 'developer' && (
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="pt-4 border-t border-zinc-800/50"
+            >
+              <div className="px-2 mb-4">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Dev Toolbox</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <button 
+                  onClick={() => { setInput("Design a modern web application for..."); setIntent('text'); setPersona('developer'); }}
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-400 hover:bg-indigo-500/10 hover:text-indigo-400 transition-all text-xs font-medium border border-transparent hover:border-indigo-500/20"
+                >
+                  <Globe className="w-4 h-4" />
+                  Web App Architect
+                </button>
+                <button 
+                  onClick={() => { setInput("Design a professional logo for..."); setIntent('image'); setPersona('developer'); }}
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-400 hover:bg-indigo-500/10 hover:text-indigo-400 transition-all text-xs font-medium border border-transparent hover:border-indigo-500/20"
+                >
+                  <Palette className="w-4 h-4" />
+                  Logo Designer
+                </button>
+                <button 
+                  onClick={() => { setInput("Create a full application structure for..."); setIntent('text'); setPersona('developer'); }}
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-400 hover:bg-indigo-500/10 hover:text-indigo-400 transition-all text-xs font-medium border border-transparent hover:border-indigo-500/20"
+                >
+                  <Layout className="w-4 h-4" />
+                  App Engineer
+                </button>
+                <button 
+                  onClick={() => { setInput("Create a UI preview for a dashboard using Tailwind CSS..."); setIntent('text'); setActiveMode('ui'); setPersona('developer'); }}
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-400 hover:bg-indigo-500/10 hover:text-indigo-400 transition-all text-xs font-medium border border-transparent hover:border-indigo-500/20"
+                >
+                  <Monitor className="w-4 h-4" />
+                  UI Previewer
+                </button>
+              </div>
+            </motion.div>
+          )}
         </nav>
 
         <div className="p-4 border-t border-zinc-800/50">
-          <div className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800/50">
+          <div className={`p-4 rounded-2xl bg-zinc-900/50 border transition-colors duration-500 ${
+            persona === 'developer' ? 'border-indigo-500/20' : 'border-zinc-800/50'
+          }`}>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              NexuCore is operating at <span className="text-emerald-500 font-mono">99.8%</span> efficiency.
+              NexuCore is operating at <span className={`${persona === 'developer' ? 'text-indigo-500' : 'text-emerald-500'} font-mono`}>99.8%</span> efficiency.
             </p>
           </div>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col relative">
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col relative overflow-hidden">
+          {/* Background Ambient Glow */}
+          <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-64 blur-[120px] opacity-20 pointer-events-none transition-colors duration-1000 ${
+            persona === 'developer' ? 'bg-indigo-600' : 'bg-emerald-600'
+          }`} />
         {/* Header */}
         <header className="h-16 border-b border-zinc-800/50 flex items-center justify-between px-6 bg-[#0A0A0A]/80 backdrop-blur-md z-10">
           <div className="flex items-center gap-4">
@@ -420,7 +590,11 @@ export default function ChatInterface() {
           <div className="flex items-center gap-4">
             <button
               onClick={createNewChat}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-emerald-500 hover:border-emerald-500/50 transition-all text-xs font-medium"
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border transition-all text-xs font-medium ${
+                persona === 'developer' 
+                  ? 'border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10' 
+                  : 'border-zinc-800 text-zinc-400 hover:text-emerald-500 hover:border-emerald-500/50'
+              }`}
               title="New Chat"
             >
               <Plus className="w-4 h-4" />
@@ -496,18 +670,24 @@ export default function ChatInterface() {
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ delay: 0.2 }}
-                      className="w-20 h-20 rounded-3xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 mx-auto mb-8 shadow-2xl shadow-emerald-500/10"
+                      className={`w-20 h-20 rounded-3xl flex items-center justify-center border mx-auto mb-8 shadow-2xl transition-all duration-500 ${
+                        persona === 'developer' 
+                          ? 'bg-indigo-500/10 border-indigo-500/20 shadow-indigo-500/10' 
+                          : 'bg-emerald-500/10 border-emerald-500/20 shadow-emerald-500/10'
+                      }`}
                     >
-                      <Sparkles className="w-10 h-10 text-emerald-500" />
+                      <Sparkles className={`w-10 h-10 transition-colors duration-500 ${
+                        persona === 'developer' ? 'text-indigo-500' : 'text-emerald-500'
+                      }`} />
                     </motion.div>
                   )}
 
-                  <div className={`p-4 rounded-2xl ${
+                  <div className={`p-4 rounded-2xl transition-all duration-500 ${
                     msg.role === 'user' 
                     ? (persona === 'developer' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20')
                     : (messages.length === 1 
                         ? 'bg-transparent border-none text-zinc-100 text-3xl font-bold tracking-tight' 
-                        : 'bg-zinc-900 border border-zinc-800/50 text-zinc-200')
+                        : `bg-zinc-900 border text-zinc-200 ${persona === 'developer' ? 'border-indigo-500/10' : 'border-zinc-800/50'}`)
                   }`}>
                     {renderMessageContent(msg.text)}
                   </div>
@@ -593,19 +773,38 @@ export default function ChatInterface() {
         {/* Input Area */}
         <div className="p-6 bg-gradient-to-t from-[#0A0A0A] to-transparent">
           <div className="max-w-4xl mx-auto">
-            {/* Image Mode Alert */}
+            {/* Image Mode Alert & Config */}
             <AnimatePresence>
               {(activeMode === 'image' || intent === 'image') && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className="mb-4 p-2 bg-pink-500/5 border border-pink-500/20 rounded-xl flex items-center justify-center gap-2"
+                  className="mb-4 space-y-3"
                 >
-                  <Sparkles className="w-3 h-3 text-pink-500" />
-                  <span className="text-[10px] font-medium text-pink-400 uppercase tracking-wider">
-                    Image Generation is currently under development
-                  </span>
+                  <div className="p-2 bg-pink-500/5 border border-pink-500/20 rounded-xl flex items-center justify-center gap-2">
+                    <Sparkles className="w-3 h-3 text-pink-500" />
+                    <span className="text-[10px] font-medium text-pink-400 uppercase tracking-wider">
+                      Image Generation is currently under development
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mr-2">Aspect Ratio:</span>
+                    {['1:1', '3:4', '4:3', '9:16', '16:9'].map((ratio) => (
+                      <button
+                        key={ratio}
+                        onClick={() => setAspectRatio(ratio)}
+                        className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all border ${
+                          aspectRatio === ratio
+                          ? 'bg-pink-500/20 border-pink-500/40 text-pink-400 shadow-lg shadow-pink-500/10'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        {ratio}
+                      </button>
+                    ))}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -659,9 +858,12 @@ export default function ChatInterface() {
               <div className={`absolute inset-0 blur-xl transition-all duration-500 rounded-full ${
                 persona === 'developer' ? 'bg-indigo-500/5 group-focus-within:bg-indigo-500/10' : 'bg-emerald-500/5 group-focus-within:bg-emerald-500/10'
               }`} />
-              <div className={`relative flex items-center gap-2 bg-zinc-900/80 backdrop-blur-xl border border-zinc-800 p-2 pl-4 rounded-2xl shadow-2xl transition-all duration-300 ${
-                persona === 'developer' ? 'group-focus-within:border-indigo-500/30' : 'group-focus-within:border-emerald-500/30'
+              <div className={`relative flex items-center gap-2 bg-zinc-900/80 backdrop-blur-xl border p-2 pl-4 rounded-2xl shadow-2xl transition-all duration-300 ${
+                persona === 'developer' ? 'border-zinc-800 group-focus-within:border-indigo-500/30' : 'border-zinc-800 group-focus-within:border-emerald-500/30'
               }`}>
+                <div className={`absolute inset-0 rounded-2xl opacity-0 group-focus-within:opacity-100 blur-md transition-opacity duration-500 pointer-events-none ${
+                  persona === 'developer' ? 'bg-indigo-500/5' : 'bg-emerald-500/5'
+                }`} />
                 <button
                   type="button"
                   onClick={() => setIntent(prev => prev === 'text' ? 'image' : 'text')}
@@ -693,7 +895,7 @@ export default function ChatInterface() {
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={
                     persona === 'developer' 
-                      ? "Request technical analysis or code..." 
+                      ? "Enter system command or code request..." 
                       : intent === 'image'
                       ? "Describe an image to generate or edit..."
                       : activeMode === 'creative'
@@ -721,6 +923,61 @@ export default function ChatInterface() {
           </div>
         </div>
       </main>
+
+      {/* UI Preview Modal */}
+      <AnimatePresence>
+        {previewHtml && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12 bg-black/80 backdrop-blur-xl"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full h-full max-w-6xl bg-zinc-900 rounded-3xl border border-zinc-800 overflow-hidden flex flex-col shadow-2xl"
+            >
+              <div className="h-14 border-b border-zinc-800 flex items-center justify-between px-6 bg-zinc-900/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/40" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/40" />
+                  <div className="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/40" />
+                  <span className="ml-4 text-xs font-mono text-zinc-500">NexuCore UI Sandbox</span>
+                </div>
+                <button
+                  onClick={() => setPreviewHtml(null)}
+                  className="p-2 rounded-xl hover:bg-zinc-800 text-zinc-500 hover:text-white transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 bg-white overflow-auto">
+                <iframe
+                  srcDoc={`
+                    <!DOCTYPE html>
+                    <html>
+                      <head>
+                        <script src="https://cdn.tailwindcss.com"></script>
+                        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+                        <style>
+                          body { font-family: 'Inter', sans-serif; }
+                        </style>
+                      </head>
+                      <body class="bg-gray-50">
+                        ${previewHtml}
+                      </body>
+                    </html>
+                  `}
+                  className="w-full h-full border-none"
+                  title="UI Preview"
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
