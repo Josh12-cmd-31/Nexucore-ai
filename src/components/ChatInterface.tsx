@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, X, FileText, Image as ImageIcon, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User } from 'lucide-react';
+import { Send, Paperclip, X, FileText, Image as ImageIcon, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateNexuCoreResponse } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
@@ -9,6 +9,15 @@ interface Message {
   role: 'user' | 'model';
   text: string;
   files?: { name: string; type: string; url: string }[];
+}
+
+interface Conversation {
+  id: string;
+  title: string;
+  messages: Message[];
+  mode: string;
+  persona: 'user' | 'developer';
+  timestamp: number;
 }
 
 interface FileData {
@@ -28,6 +37,8 @@ const MODES = [
 ];
 
 export default function ChatInterface() {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     { role: 'model', text: "Hello, I am NexuCore AI. What would you like to create, analyze, or strategize today?" }
   ]);
@@ -39,6 +50,64 @@ export default function ChatInterface() {
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load conversations from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('nexucore_conversations');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setConversations(parsed);
+      } catch (e) {
+        console.error('Failed to parse conversations', e);
+      }
+    }
+  }, []);
+
+  // Save conversations to localStorage
+  useEffect(() => {
+    if (conversations.length > 0) {
+      localStorage.setItem('nexucore_conversations', JSON.stringify(conversations));
+    }
+  }, [conversations]);
+
+  // Update current conversation when messages change
+  useEffect(() => {
+    if (currentConversationId) {
+      setConversations(prev => prev.map(conv => 
+        conv.id === currentConversationId 
+          ? { ...conv, messages, mode: activeMode, persona, timestamp: Date.now() } 
+          : conv
+      ));
+    }
+  }, [messages, activeMode, persona, currentConversationId]);
+
+  const createNewChat = () => {
+    setCurrentConversationId(null);
+    setMessages([
+      { role: 'model', text: "Hello, I am NexuCore AI. What would you like to create, analyze, or strategize today?" }
+    ]);
+    setActiveMode('general');
+    setPersona('user');
+  };
+
+  const loadConversation = (id: string) => {
+    const conv = conversations.find(c => c.id === id);
+    if (conv) {
+      setCurrentConversationId(conv.id);
+      setMessages(conv.messages);
+      setActiveMode(conv.mode);
+      setPersona(conv.persona);
+    }
+  };
+
+  const deleteConversation = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setConversations(prev => prev.filter(c => c.id !== id));
+    if (currentConversationId === id) {
+      createNewChat();
+    }
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -79,7 +148,24 @@ export default function ChatInterface() {
       files: attachedFiles.map(f => ({ name: f.name, type: f.type, url: f.url }))
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    let newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+    
+    // If it's a new conversation, create it
+    if (!currentConversationId) {
+      const newId = Date.now().toString();
+      const newConv: Conversation = {
+        id: newId,
+        title: input.substring(0, 30) || 'New Conversation',
+        messages: newMessages,
+        mode: activeMode,
+        persona: persona,
+        timestamp: Date.now()
+      };
+      setConversations(prev => [newConv, ...prev]);
+      setCurrentConversationId(newId);
+    }
+
     setInput('');
     setIsLoading(true);
 
@@ -170,24 +256,70 @@ export default function ChatInterface() {
           </div>
         </div>
         
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <div className="px-2 mb-4">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Specialized Modes</span>
+        <div className="p-4">
+          <button
+            onClick={createNewChat}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-100 transition-all border border-zinc-700/50 text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            New Chat
+          </button>
+        </div>
+
+        <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+          <div>
+            <div className="px-2 mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">History</span>
+            </div>
+            <div className="space-y-1">
+              {conversations.length === 0 ? (
+                <p className="px-2 text-xs text-zinc-600 italic">No previous chats</p>
+              ) : (
+                conversations.map(conv => (
+                  <div
+                    key={conv.id}
+                    onClick={() => loadConversation(conv.id)}
+                    className={`group flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all ${
+                      currentConversationId === conv.id 
+                        ? 'bg-zinc-800 text-white' 
+                        : 'text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300'
+                    }`}
+                  >
+                    <MessageSquare className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs font-medium truncate flex-1">{conv.title}</span>
+                    <button
+                      onClick={(e) => deleteConversation(e, conv.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-          {MODES.map((mode) => (
-            <button
-              key={mode.id}
-              onClick={() => setActiveMode(mode.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
-                activeMode === mode.id 
-                ? 'bg-zinc-800/50 text-white shadow-sm' 
-                : 'text-zinc-500 hover:bg-zinc-800/30 hover:text-zinc-300'
-              }`}
-            >
-              <mode.icon className={`w-4 h-4 ${activeMode === mode.id ? mode.color : 'group-hover:text-zinc-300'}`} />
-              <span className="text-sm font-medium">{mode.name}</span>
-            </button>
-          ))}
+
+          <div>
+            <div className="px-2 mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Specialized Modes</span>
+            </div>
+            <div className="space-y-1">
+              {MODES.map((mode) => (
+                <button
+                  key={mode.id}
+                  onClick={() => setActiveMode(mode.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+                    activeMode === mode.id 
+                    ? 'bg-zinc-800/50 text-white shadow-sm' 
+                    : 'text-zinc-500 hover:bg-zinc-800/30 hover:text-zinc-300'
+                  }`}
+                >
+                  <mode.icon className={`w-4 h-4 ${activeMode === mode.id ? mode.color : 'group-hover:text-zinc-300'}`} />
+                  <span className="text-sm font-medium">{mode.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </nav>
 
         <div className="p-4 border-t border-zinc-800/50">

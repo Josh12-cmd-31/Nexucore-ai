@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
+import { Download, Image as ImageIcon, FileCode } from 'lucide-react';
 
 interface D3VisualizerProps {
   config: {
@@ -232,8 +233,78 @@ export default function D3Visualizer({ config }: D3VisualizerProps) {
 
   }, [config]);
 
+  const exportSVG = () => {
+    if (!svgRef.current) return;
+    const svgData = new XMLSerializer().serializeToString(svgRef.current);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `nexucore-viz-${Date.now()}.svg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPNG = () => {
+    if (!svgRef.current) return;
+    
+    const svgElement = svgRef.current;
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Use a higher resolution for the export
+    const exportWidth = 1500;
+    const exportHeight = 900;
+    canvas.width = exportWidth;
+    canvas.height = exportHeight;
+    
+    const img = new Image();
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    
+    img.onload = () => {
+      if (ctx) {
+        // Draw background
+        ctx.fillStyle = '#09090b'; // zinc-950
+        ctx.fillRect(0, 0, exportWidth, exportHeight);
+        
+        // Draw SVG
+        ctx.drawImage(img, 0, 0, exportWidth, exportHeight);
+        
+        const pngUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = pngUrl;
+        link.download = `nexucore-viz-${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+
   return (
-    <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 my-4">
+    <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 my-4 group relative">
+      <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <button
+          onClick={exportSVG}
+          className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-emerald-500 hover:border-emerald-500/50 transition-all shadow-xl"
+          title="Export as SVG"
+        >
+          <FileCode className="w-4 h-4" />
+        </button>
+        <button
+          onClick={exportPNG}
+          className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-emerald-500 hover:border-emerald-500/50 transition-all shadow-xl"
+          title="Export as PNG"
+        >
+          <ImageIcon className="w-4 h-4" />
+        </button>
+      </div>
       <svg ref={svgRef} className="w-full h-auto max-w-full"></svg>
     </div>
   );
