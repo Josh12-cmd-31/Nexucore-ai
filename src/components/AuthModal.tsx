@@ -94,6 +94,16 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClos
                       Google
                     </button>
                   </div>
+
+                  <p className="text-center text-xs text-zinc-500">
+                    Don't have an account?{' '}
+                    <button 
+                      onClick={() => { onClose(); window.location.href = '/signup'; }}
+                      className="text-emerald-500 hover:text-emerald-400 font-medium transition-colors"
+                    >
+                      Sign Up
+                    </button>
+                  </p>
                 </div>
               ) : (
                 <motion.div

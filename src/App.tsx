@@ -5,6 +5,7 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ChatInterface from './components/ChatInterface';
+import SignupPage from './components/SignupPage';
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<ChatInterface initialPersona="user" />} />
           <Route path="/developer" element={<ChatInterface initialPersona="developer" />} />
+          <Route path="/signup" element={<SignupPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

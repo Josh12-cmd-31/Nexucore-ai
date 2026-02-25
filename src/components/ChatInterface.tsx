@@ -684,6 +684,12 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
               <span className="hidden xs:inline">Sign In</span>
             </button>
             <button
+              onClick={() => navigate('/signup')}
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-all text-xs font-bold shadow-lg shadow-emerald-900/20"
+            >
+              Sign Up
+            </button>
+            <button
               onClick={createNewChat}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border transition-all text-xs font-medium ${
                 persona === 'developer' 
