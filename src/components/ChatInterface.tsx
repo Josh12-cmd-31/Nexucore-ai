@@ -46,7 +46,7 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: "hi ,what can I help you with?" }
+    { role: 'model', text: "Welcome. What are we building, analyzing, or optimizing today?" }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
