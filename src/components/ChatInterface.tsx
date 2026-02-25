@@ -44,7 +44,7 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: "Hello, I am NexuCore AI. What would you like to create, analyze, or strategize today?" }
+    { role: 'model', text: "hi ,what can I help you with?" }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -106,7 +106,7 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
   const createNewChat = () => {
     setCurrentConversationId(null);
     setMessages([
-      { role: 'model', text: "Hello, I am NexuCore AI. What would you like to create, analyze, or strategize today?" }
+      { role: 'model', text: "hi ,what can I help you with?" }
     ]);
     setActiveMode('general');
     // Keep current persona
