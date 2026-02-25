@@ -76,9 +76,14 @@ export async function generateNexuCoreResponse(
   const isImageMode = mode === 'image';
   const model = isImageMode ? "gemini-2.5-flash-image" : "gemini-3-flash-preview";
 
-  const userText = isImageMode 
-    ? `${NEXUCORE_SYSTEM_INSTRUCTION}\n\nGenerate an image based on this description: ${message}`
+  // Enhanced prompt for image generation to ensure better understanding and adherence
+  const imagePrompt = isImageMode 
+    ? `You are a professional AI image generator. Create a high-quality, detailed, and photorealistic image based on this description: "${message}". 
+       Focus on lighting, composition, and realistic textures. If the prompt describes a person, ensure they look natural and professional.
+       Prompt: ${message}`
     : `[PERSONA: ${persona.toUpperCase()}] ${personaInstruction}\n\n[MODE: ${mode.toUpperCase()}] ${modeInstructions}\n\n${message}`;
+
+  const userText = imagePrompt;
 
   const contents = [
     ...history.map(h => ({ role: h.role, parts: h.parts })),
@@ -108,16 +113,40 @@ export async function generateNexuCoreResponse(
       contents: contents as any,
       config: config,
     });
-    return response;
-  } catch (error) {
-    console.error("Gemini API Error:", error);
+
+    // Check if image generation actually returned an image part
     if (isImageMode) {
-      // Fallback to gemini-3-flash-preview if image model fails
-      return await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: contents as any,
-        config: { systemInstruction: NEXUCORE_SYSTEM_INSTRUCTION },
-      });
+      const hasImage = response.candidates?.[0]?.content?.parts?.some(p => p.inlineData);
+      if (!hasImage) {
+        console.warn("Image model did not return an image part. Attempting text explanation.");
+      }
+    }
+
+    return response;
+  } catch (error: any) {
+    console.error("Gemini API Error:", error);
+    
+    // Improved error handling for image generation
+    if (isImageMode) {
+      const errorMessage = error?.message || "Unknown error";
+      
+      // If it's a safety block or specific model error, try to get a text explanation from the flash model
+      try {
+        const fallbackResponse = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: `The user tried to generate an image with this prompt: "${message}". The image generation failed with this error: "${errorMessage}". Please explain to the user why it might have failed (e.g., safety filters, complexity) and suggest how they could rephrase it to succeed. Be helpful and professional.` }]
+            }
+          ],
+          config: { systemInstruction: NEXUCORE_SYSTEM_INSTRUCTION },
+        });
+        return fallbackResponse;
+      } catch (fallbackError) {
+        console.error("Fallback Error:", fallbackError);
+        throw error; // Throw the original error if fallback also fails
+      }
     }
     throw error;
   }

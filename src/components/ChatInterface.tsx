@@ -238,8 +238,17 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
 
       setAttachedFiles([]);
       
-      // Use intent if it's set to image, otherwise use activeMode
-      const effectiveMode = intent === 'image' ? 'image' : activeMode;
+      // Automatic image intent detection: if the prompt starts with "create an image", "generate an image", etc.
+      const lowerInput = input.toLowerCase();
+      const isImageRequest = lowerInput.startsWith('create an image') || 
+                             lowerInput.startsWith('generate an image') || 
+                             lowerInput.startsWith('make an image') ||
+                             lowerInput.startsWith('draw an image') ||
+                             lowerInput.includes('generate a picture of') ||
+                             lowerInput.includes('create a picture of');
+
+      // Use intent if it's set to image, otherwise use activeMode or auto-detected image request
+      const effectiveMode = (intent === 'image' || isImageRequest) ? 'image' : activeMode;
       
       // If in studio mode, provide the current code as context
       const studioContext = isStudioMode && studioCode 
