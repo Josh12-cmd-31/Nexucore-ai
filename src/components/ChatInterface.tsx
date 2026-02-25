@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Send, Paperclip, X, FileText, Image as ImageIcon, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2, Menu, Download, Wand2, Type as TypeIcon, Globe, Palette, Layout, Monitor, Eye, Edit2, Check, Code, Maximize2, Minimize2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateNexuCoreResponse } from '../services/gemini';
@@ -38,7 +39,8 @@ const MODES = [
   { id: 'scientific', name: 'Scientific', icon: Microscope, color: 'text-cyan-400' },
 ];
 
-export default function ChatInterface() {
+export default function ChatInterface({ initialPersona = 'user' }: { initialPersona?: 'user' | 'developer' }) {
+  const navigate = useNavigate();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([
@@ -48,10 +50,15 @@ export default function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<FileData[]>([]);
   const [activeMode, setActiveMode] = useState('general');
-  const [persona, setPersona] = useState<'user' | 'developer'>('user');
+  const [persona, setPersona] = useState<'user' | 'developer'>(initialPersona);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [intent, setIntent] = useState<'text' | 'image'>('text');
   const [aspectRatio, setAspectRatio] = useState('1:1');
+
+  // Sync persona state with prop
+  useEffect(() => {
+    setPersona(initialPersona);
+  }, [initialPersona]);
   
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -102,13 +109,16 @@ export default function ChatInterface() {
       { role: 'model', text: "Hello, I am NexuCore AI. What would you like to create, analyze, or strategize today?" }
     ]);
     setActiveMode('general');
-    setPersona('user');
+    // Keep current persona
     setIsSidebarOpen(false);
   };
 
   const loadConversation = (id: string) => {
     const conv = conversations.find(c => c.id === id);
     if (conv) {
+      if (conv.persona !== persona) {
+        navigate(conv.persona === 'developer' ? '/developer' : '/');
+      }
       setCurrentConversationId(conv.id);
       setMessages(conv.messages);
       setActiveMode(conv.mode);
@@ -621,7 +631,7 @@ export default function ChatInterface() {
             
             <div className="flex bg-zinc-900 rounded-lg p-1 border border-zinc-800">
               <button
-                onClick={() => setPersona('user')}
+                onClick={() => navigate('/')}
                 className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-medium transition-all ${
                   persona === 'user' 
                   ? 'bg-emerald-600 text-white shadow-sm' 
@@ -632,7 +642,7 @@ export default function ChatInterface() {
                 User
               </button>
               <button
-                onClick={() => setPersona('developer')}
+                onClick={() => navigate('/developer')}
                 className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-medium transition-all ${
                   persona === 'developer' 
                   ? 'bg-indigo-600 text-white shadow-sm' 
