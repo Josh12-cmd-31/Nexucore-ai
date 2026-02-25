@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { generateNexuCoreResponse } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
 import D3Visualizer from './D3Visualizer';
+import ExploreModal from './ExploreModal';
+import AuthModal from './AuthModal';
 
 interface Message {
   role: 'user' | 'model';
@@ -54,6 +56,8 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [intent, setIntent] = useState<'text' | 'image'>('text');
   const [aspectRatio, setAspectRatio] = useState('1:1');
+  const [isExploreOpen, setIsExploreOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
 
   // Sync persona state with prop
   useEffect(() => {
@@ -421,7 +425,7 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
       <aside className={`fixed md:relative w-64 h-full border-r border-zinc-800/50 bg-[#0D0D0D] flex flex-col z-50 transition-transform duration-300 md:translate-x-0 ${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        <div className="p-6 border-b border-zinc-800/50">
+        <div className="p-6 border-b border-zinc-800/50 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors duration-500 ${
               persona === 'developer' 
@@ -441,6 +445,13 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
               </span>
             </div>
           </div>
+          <button
+            onClick={() => setIsAuthOpen(true)}
+            className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-500 hover:text-white transition-all"
+            title="Sign In"
+          >
+            <User className="w-4 h-4" />
+          </button>
         </div>
         
         <div className="p-4">
@@ -602,6 +613,16 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
           )}
         </nav>
 
+        <div className="px-4 pb-2">
+          <button
+            onClick={() => setIsExploreOpen(true)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-500 hover:bg-zinc-800/30 hover:text-zinc-300 transition-all duration-200 group border border-transparent hover:border-zinc-800/50"
+          >
+            <BookOpen className="w-4 h-4 group-hover:text-emerald-500 transition-colors" />
+            <span className="text-sm font-medium">Explore NexuCore</span>
+          </button>
+        </div>
+
         <div className="p-4 border-t border-zinc-800/50">
           <div className={`p-4 rounded-2xl bg-zinc-900/50 border transition-colors duration-500 ${
             persona === 'developer' ? 'border-indigo-500/20' : 'border-zinc-800/50'
@@ -655,6 +676,13 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsAuthOpen(true)}
+              className="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-all text-xs font-medium"
+            >
+              <User className="w-4 h-4" />
+              <span className="hidden xs:inline">Sign In</span>
+            </button>
             <button
               onClick={createNewChat}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border transition-all text-xs font-medium ${
@@ -1229,6 +1257,16 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ExploreModal 
+        isOpen={isExploreOpen} 
+        onClose={() => setIsExploreOpen(false)} 
+      />
+
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+      />
     </div>
   );
 }

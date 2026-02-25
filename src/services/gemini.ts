@@ -74,7 +74,7 @@ export async function generateNexuCoreResponse(
   }[mode as keyof typeof modeInstructions] || "";
 
   const isImageMode = mode === 'image';
-  const model = isImageMode ? "gemini-2.5-flash-image" : "gemini-2.5-flash";
+  const model = isImageMode ? "gemini-2.5-flash-image" : "gemini-3-flash-preview";
 
   const userText = isImageMode 
     ? `${NEXUCORE_SYSTEM_INSTRUCTION}\n\nGenerate an image based on this description: ${message}`
@@ -112,9 +112,9 @@ export async function generateNexuCoreResponse(
   } catch (error) {
     console.error("Gemini API Error:", error);
     if (isImageMode) {
-      // Fallback to gemini-2.5-flash if image model fails
+      // Fallback to gemini-3-flash-preview if image model fails
       return await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3-flash-preview",
         contents: contents as any,
         config: { systemInstruction: NEXUCORE_SYSTEM_INSTRUCTION },
       });
