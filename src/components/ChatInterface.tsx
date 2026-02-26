@@ -32,6 +32,7 @@ interface FileData {
 
 const MODES = [
   { id: 'general', name: 'General', icon: Brain, color: 'text-zinc-400' },
+  { id: 'code', name: 'Code Assistant', icon: Terminal, color: 'text-indigo-400' },
   { id: 'creative', name: 'Creative', icon: PenTool, color: 'text-purple-400' },
   { id: 'image', name: 'Image Gen', icon: ImageIcon, color: 'text-pink-400', beta: true },
   { id: 'ui', name: 'UI Sandbox', icon: Monitor, color: 'text-indigo-400' },
@@ -51,7 +52,7 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<FileData[]>([]);
-  const [activeMode, setActiveMode] = useState('general');
+  const [activeMode, setActiveMode] = useState(initialPersona === 'developer' ? 'code' : 'general');
   const [persona, setPersona] = useState<'user' | 'developer'>(initialPersona);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [intent, setIntent] = useState<'text' | 'image'>('text');
@@ -543,12 +544,44 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
             </div>
           </div>
 
+          {persona === 'developer' && (
+            <div>
+              <div className="px-2 mb-4">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-500">Developer Tools</span>
+              </div>
+              <div className="space-y-1">
+                <button
+                  onClick={() => setActiveMode('code')}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${
+                    activeMode === 'code'
+                      ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                      : 'text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300'
+                  }`}
+                >
+                  <Terminal className="w-4 h-4" />
+                  <span className="text-xs font-medium">Code Assistant</span>
+                </button>
+                <button
+                  onClick={() => setActiveMode('ui')}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${
+                    activeMode === 'ui'
+                      ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                      : 'text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300'
+                  }`}
+                >
+                  <Monitor className="w-4 h-4" />
+                  <span className="text-xs font-medium">UI Sandbox</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div>
             <div className="px-2 mb-4">
               <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Specialized Modes</span>
             </div>
             <div className="space-y-1">
-              {MODES.map((mode) => (
+              {MODES.filter(m => persona !== 'developer' || (m.id !== 'code' && m.id !== 'ui')).map((mode) => (
                 <button
                   key={mode.id}
                   onClick={() => setActiveMode(mode.id)}
@@ -977,6 +1010,25 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
               )}
             </AnimatePresence>
 
+            {activeMode === 'code' && persona === 'developer' && (
+              <div className="flex flex-wrap gap-2 mb-4 px-2">
+                {[
+                  { label: 'Refactor', prompt: 'Refactor this code for better readability and performance: ' },
+                  { label: 'Explain', prompt: 'Explain how this code works in detail: ' },
+                  { label: 'Add Comments', prompt: 'Add comprehensive JSDoc comments to this code: ' },
+                  { label: 'Find Bugs', prompt: 'Analyze this code for potential bugs or security vulnerabilities: ' },
+                  { label: 'Optimize', prompt: 'Optimize this code for maximum efficiency: ' },
+                ].map((action) => (
+                  <button
+                    key={action.label}
+                    onClick={() => setInput(action.prompt)}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-500/20 transition-all"
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <form 
               onSubmit={handleSubmit}
               className="relative group"
