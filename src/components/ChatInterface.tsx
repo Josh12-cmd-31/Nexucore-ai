@@ -967,6 +967,25 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
                 >
                   <Paperclip className="w-5 h-5" />
                 </button>
+
+                {/* Active Mode Indicator */}
+                <motion.div 
+                  layoutId="active-mode-pill"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-800/50 border border-zinc-700/50 shadow-sm"
+                >
+                  {(() => {
+                    const mode = MODES.find(m => m.id === activeMode) || MODES[0];
+                    return (
+                      <>
+                        <mode.icon className={`w-3.5 h-3.5 ${mode.color}`} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-300 whitespace-nowrap">
+                          {mode.name}
+                        </span>
+                      </>
+                    );
+                  })()}
+                </motion.div>
+
                 <input 
                   type="file"
                   ref={fileInputRef}
@@ -980,9 +999,17 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
                   placeholder={
                     persona === 'developer' 
                       ? "Enter system command or code request..." 
-                      : activeMode === 'creative'
-                      ? "Enter a title for a song or poem..."
-                      : "Ask NexuCore anything..."
+                      : {
+                          general: "Ask NexuCore anything...",
+                          code: "Describe the function or logic you need...",
+                          creative: "Enter a title for a song, poem, or story...",
+                          ui: "Describe the UI component you want to build...",
+                          analysis: "Paste text or upload a file for deep analysis...",
+                          marketing: "Describe your product or target audience...",
+                          academic: "Ask a question or provide a topic to learn...",
+                          scientific: "Enter a research topic or scientific query...",
+                          pdf: "Provide text to format for PDF export..."
+                        }[activeMode as string] || "Ask NexuCore anything..."
                   }
                   className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-3 placeholder:text-zinc-600"
                 />
