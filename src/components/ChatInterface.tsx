@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Paperclip, X, FileText, Image as ImageIcon, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2, Menu, Download, Wand2, Type as TypeIcon, Globe, Palette, Layout, Monitor, Eye, Edit2, Check, Code, Maximize2, Minimize2, RefreshCw } from 'lucide-react';
+import { Send, Paperclip, X, FileText, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2, Menu, Download, Type as TypeIcon, Globe, Palette, Layout, Monitor, Eye, Edit2, Check, Code, Maximize2, Minimize2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateNexuCoreResponse } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
@@ -34,7 +34,6 @@ const MODES = [
   { id: 'general', name: 'General', icon: Brain, color: 'text-zinc-400' },
   { id: 'code', name: 'Code Assistant', icon: Terminal, color: 'text-indigo-400' },
   { id: 'creative', name: 'Creative', icon: PenTool, color: 'text-purple-400' },
-  { id: 'image', name: 'Image Gen', icon: ImageIcon, color: 'text-pink-400', beta: true },
   { id: 'ui', name: 'UI Sandbox', icon: Monitor, color: 'text-indigo-400' },
   { id: 'analysis', name: 'Analysis', icon: FileText, color: 'text-blue-400' },
   { id: 'marketing', name: 'Marketing', icon: Megaphone, color: 'text-orange-400' },
@@ -47,7 +46,7 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: "Welcome. What are we building, analyzing, or optimizing today?" }
+    { role: 'model', text: "HI, WHAT CAN I HELP YOU WITH " }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -55,8 +54,6 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
   const [activeMode, setActiveMode] = useState(initialPersona === 'developer' ? 'code' : 'general');
   const [persona, setPersona] = useState<'user' | 'developer'>(initialPersona);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [intent, setIntent] = useState<'text' | 'image'>('text');
-  const [aspectRatio, setAspectRatio] = useState('1:1');
   const [isExploreOpen, setIsExploreOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
@@ -111,7 +108,7 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
   const createNewChat = () => {
     setCurrentConversationId(null);
     setMessages([
-      { role: 'model', text: "hi ,what can I help you with?" }
+      { role: 'model', text: "HI, WHAT CAN I HELP YOU WITH " }
     ]);
     setActiveMode('general');
     // Keep current persona
@@ -239,18 +236,6 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
 
       setAttachedFiles([]);
       
-      // Automatic image intent detection: if the prompt starts with "create an image", "generate an image", etc.
-      const lowerInput = input.toLowerCase();
-      const isImageRequest = lowerInput.startsWith('create an image') || 
-                             lowerInput.startsWith('generate an image') || 
-                             lowerInput.startsWith('make an image') ||
-                             lowerInput.startsWith('draw an image') ||
-                             lowerInput.includes('generate a picture of') ||
-                             lowerInput.includes('create a picture of');
-
-      // Use intent if it's set to image, otherwise use activeMode or auto-detected image request
-      const effectiveMode = (intent === 'image' || isImageRequest) ? 'image' : activeMode;
-      
       // If in studio mode, provide the current code as context
       const studioContext = isStudioMode && studioCode 
         ? `\n\nCURRENT STUDIO CODE:\n\`\`\`html\n${studioCode}\n\`\`\`\n\nPlease refer to this code when making changes.`
@@ -262,14 +247,12 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
         input + studioContext, 
         history, 
         filesForApi, 
-        effectiveMode, 
+        activeMode, 
         persona,
-        effectiveMode === 'image' ? { aspectRatio } : undefined,
         customSystemInstruction
       );
       
       const responseText = response.text || "";
-      const responseFiles: { name: string; type: string; url: string }[] = [];
 
       // Auto-update studio code if in studio mode and AI returns new code
       if (isStudioMode && responseText.includes('```html-preview')) {
@@ -280,26 +263,9 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
         }
       }
 
-      // Extract images from response parts
-      if (response.candidates?.[0]?.content?.parts) {
-        response.candidates[0].content.parts.forEach((part, index) => {
-          if (part.inlineData) {
-            const base64 = part.inlineData.data;
-            const mimeType = part.inlineData.mimeType;
-            const url = `data:${mimeType};base64,${base64}`;
-            responseFiles.push({
-              name: `generated-image-${index}.png`,
-              type: mimeType,
-              url: url
-            });
-          }
-        });
-      }
-
       setMessages(prev => [...prev, {
         role: 'model',
-        text: responseText || (responseFiles.length > 0 ? "" : "I'm sorry, I couldn't generate a response."),
-        files: responseFiles.length > 0 ? responseFiles : undefined
+        text: responseText || "I'm sorry, I couldn't generate a response.",
       }]);
     } catch (error) {
       console.error(error);
@@ -595,11 +561,6 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
                     <mode.icon className={`w-4 h-4 ${activeMode === mode.id ? mode.color : 'group-hover:text-zinc-300'}`} />
                     <span className="text-sm font-medium">{mode.name}</span>
                   </div>
-                  {mode.id === 'image' && (
-                    <span className="text-[8px] font-bold uppercase tracking-tighter bg-pink-500/10 text-pink-500 px-1.5 py-0.5 rounded border border-pink-500/20">
-                      Beta
-                    </span>
-                  )}
                 </button>
               ))}
             </div>
@@ -623,28 +584,21 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
                   Open Studio
                 </button>
                 <button 
-                  onClick={() => { setInput("Design a modern web application for..."); setIntent('text'); setPersona('developer'); }}
+                  onClick={() => { setInput("Design a modern web application for..."); setPersona('developer'); }}
                   className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-400 hover:bg-indigo-500/10 hover:text-indigo-400 transition-all text-xs font-medium border border-transparent hover:border-indigo-500/20"
                 >
                   <Globe className="w-4 h-4" />
                   Web App Architect
                 </button>
                 <button 
-                  onClick={() => { setInput("Design a professional logo for..."); setIntent('image'); setPersona('developer'); }}
-                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-400 hover:bg-indigo-500/10 hover:text-indigo-400 transition-all text-xs font-medium border border-transparent hover:border-indigo-500/20"
-                >
-                  <Palette className="w-4 h-4" />
-                  Logo Designer
-                </button>
-                <button 
-                  onClick={() => { setInput("Create a full application structure for..."); setIntent('text'); setPersona('developer'); }}
+                  onClick={() => { setInput("Create a full application structure for..."); setPersona('developer'); }}
                   className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-400 hover:bg-indigo-500/10 hover:text-indigo-400 transition-all text-xs font-medium border border-transparent hover:border-indigo-500/20"
                 >
                   <Layout className="w-4 h-4" />
                   App Engineer
                 </button>
                 <button 
-                  onClick={() => { setInput("Create a UI preview for a dashboard using Tailwind CSS..."); setIntent('text'); setActiveMode('ui'); setPersona('developer'); }}
+                  onClick={() => { setInput("Create a UI preview for a dashboard using Tailwind CSS..."); setActiveMode('ui'); setPersona('developer'); }}
                   className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-400 hover:bg-indigo-500/10 hover:text-indigo-400 transition-all text-xs font-medium border border-transparent hover:border-indigo-500/20"
                 >
                   <Monitor className="w-4 h-4" />
@@ -866,64 +820,26 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
           </AnimatePresence>
           {isLoading && (
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex justify-start"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex justify-start px-4"
             >
-              <div className={`max-w-[85%] md:max-w-[70%] p-6 rounded-3xl border backdrop-blur-sm shadow-2xl transition-all duration-500 ${
-                intent === 'image' || activeMode === 'image'
-                ? 'bg-pink-500/5 border-pink-500/20 shadow-pink-500/5'
-                : 'bg-zinc-900/50 border-zinc-800/50 shadow-black/40'
-              }`}>
-                <div className="flex items-center gap-6">
-                  <div className="relative">
-                    <div className={`absolute inset-0 blur-lg animate-pulse rounded-full ${
-                      intent === 'image' || activeMode === 'image' ? 'bg-pink-500/20' : 'bg-emerald-500/20'
-                    }`} />
-                    <div className={`relative w-12 h-12 rounded-2xl flex items-center justify-center border animate-bounce ${
-                      intent === 'image' || activeMode === 'image' 
-                      ? 'bg-pink-500/10 border-pink-500/20 text-pink-500' 
-                      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
-                    }`}>
-                      {intent === 'image' || activeMode === 'image' ? (
-                        <ImageIcon className="w-6 h-6" />
-                      ) : (
-                        <Brain className="w-6 h-6" />
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-bold tracking-tight ${
-                        intent === 'image' || activeMode === 'image' ? 'text-pink-400' : 'text-emerald-400'
-                      }`}>
-                        {intent === 'image' || activeMode === 'image' ? 'Synthesizing Visuals' : 'Processing Intelligence'}
-                      </span>
-                      <div className="flex gap-1">
-                        <motion.div 
-                          animate={{ opacity: [0.3, 1, 0.3] }}
-                          transition={{ duration: 1.5, repeat: Infinity, delay: 0 }}
-                          className={`w-1 h-1 rounded-full ${intent === 'image' || activeMode === 'image' ? 'bg-pink-500' : 'bg-emerald-500'}`}
-                        />
-                        <motion.div 
-                          animate={{ opacity: [0.3, 1, 0.3] }}
-                          transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
-                          className={`w-1 h-1 rounded-full ${intent === 'image' || activeMode === 'image' ? 'bg-pink-500' : 'bg-emerald-500'}`}
-                        />
-                        <motion.div 
-                          animate={{ opacity: [0.3, 1, 0.3] }}
-                          transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
-                          className={`w-1 h-1 rounded-full ${intent === 'image' || activeMode === 'image' ? 'bg-pink-500' : 'bg-emerald-500'}`}
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-zinc-500 font-medium">
-                      {intent === 'image' || activeMode === 'image' 
-                        ? "NexuCore is rendering your visual request..." 
-                        : "Analyzing neural patterns and generating response..."}
-                    </p>
-                  </div>
-                </div>
+              <div className="flex gap-1.5 items-center py-2">
+                <motion.div 
+                  animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1, repeat: Infinity, delay: 0 }}
+                  className={`w-1.5 h-1.5 rounded-full ${persona === 'developer' ? 'bg-indigo-500' : 'bg-emerald-500'}`}
+                />
+                <motion.div 
+                  animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                  className={`w-1.5 h-1.5 rounded-full ${persona === 'developer' ? 'bg-indigo-500' : 'bg-emerald-500'}`}
+                />
+                <motion.div 
+                  animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                  className={`w-1.5 h-1.5 rounded-full ${persona === 'developer' ? 'bg-indigo-500' : 'bg-emerald-500'}`}
+                />
               </div>
             </motion.div>
           )}
@@ -932,42 +848,6 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
         {/* Input Area */}
         <div className="p-6 bg-gradient-to-t from-[#0A0A0A] to-transparent">
           <div className="max-w-4xl mx-auto">
-            {/* Image Mode Alert & Config */}
-            <AnimatePresence>
-              {(activeMode === 'image' || intent === 'image') && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="mb-4 space-y-3"
-                >
-                  <div className="p-2 bg-pink-500/5 border border-pink-500/20 rounded-xl flex items-center justify-center gap-2">
-                    <Sparkles className="w-3 h-3 text-pink-500" />
-                    <span className="text-[10px] font-medium text-pink-400 uppercase tracking-wider">
-                      Image Generation is currently under development
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mr-2">Aspect Ratio:</span>
-                    {['1:1', '3:4', '4:3', '9:16', '16:9'].map((ratio) => (
-                      <button
-                        key={ratio}
-                        onClick={() => setAspectRatio(ratio)}
-                        className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all border ${
-                          aspectRatio === ratio
-                          ? 'bg-pink-500/20 border-pink-500/40 text-pink-400 shadow-lg shadow-pink-500/10'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'
-                        }`}
-                      >
-                        {ratio}
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
             {/* File Previews */}
             <AnimatePresence>
               {attachedFiles.length > 0 && (
@@ -1044,16 +924,6 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
                 }`} />
                 <button
                   type="button"
-                  onClick={() => setIntent(prev => prev === 'text' ? 'image' : 'text')}
-                  className={`p-2 transition-all rounded-xl hover:bg-zinc-800 flex items-center gap-2 ${
-                    intent === 'image' ? 'text-pink-500 bg-pink-500/10' : 'text-zinc-500'
-                  }`}
-                  title={intent === 'image' ? "Switch to Text Mode" : "Switch to Image Mode"}
-                >
-                  {intent === 'image' ? <Wand2 className="w-5 h-5" /> : <TypeIcon className="w-5 h-5" />}
-                </button>
-                <button
-                  type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className={`p-2 text-zinc-500 transition-colors rounded-xl hover:bg-zinc-800 ${
                     persona === 'developer' ? 'hover:text-indigo-500' : 'hover:text-emerald-500'
@@ -1074,8 +944,6 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
                   placeholder={
                     persona === 'developer' 
                       ? "Enter system command or code request..." 
-                      : intent === 'image'
-                      ? "Describe an image to generate or edit..."
                       : activeMode === 'creative'
                       ? "Enter a title for a song or poem..."
                       : "Ask NexuCore anything..."
