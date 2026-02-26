@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Paperclip, X, FileText, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2, Menu, Download, Type as TypeIcon, Globe, Palette, Layout, Monitor, Eye, Edit2, Check, Code, Maximize2, Minimize2, RefreshCw } from 'lucide-react';
+import { Send, Paperclip, X, FileText, Loader2, Sparkles, Brain, BookOpen, Microscope, Megaphone, PenTool, Terminal, User, Plus, MessageSquare, Trash2, Menu, Download, Type as TypeIcon, Globe, Palette, Layout, Monitor, Eye, Edit2, Check, Code, Maximize2, Minimize2, RefreshCw, FileDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { jsPDF } from 'jspdf';
 import { generateNexuCoreResponse } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
 import D3Visualizer from './D3Visualizer';
@@ -39,6 +40,7 @@ const MODES = [
   { id: 'marketing', name: 'Marketing', icon: Megaphone, color: 'text-orange-400' },
   { id: 'academic', name: 'Academic', icon: BookOpen, color: 'text-emerald-400' },
   { id: 'scientific', name: 'Scientific', icon: Microscope, color: 'text-cyan-400' },
+  { id: 'pdf', name: 'PDF Tools', icon: FileDown, color: 'text-red-400' },
 ];
 
 export default function ChatInterface({ initialPersona = 'user' }: { initialPersona?: 'user' | 'developer' }) {
@@ -168,6 +170,31 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
+
+  const exportToPDF = (text: string, title: string = 'NexuCore Export') => {
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(20);
+    doc.setTextColor(40, 40, 40);
+    doc.text('NexuCore Intelligence Export', 20, 20);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 30);
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, 35, 190, 35);
+    
+    // Add content
+    doc.setFontSize(11);
+    doc.setTextColor(60, 60, 60);
+    
+    const splitText = doc.splitTextToSize(text, 170);
+    doc.text(splitText, 20, 45);
+    
+    doc.save(`${title.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -813,6 +840,15 @@ export default function ChatInterface({ initialPersona = 'user' }: { initialPers
                     }`}>
                       {msg.role === 'user' ? (persona === 'developer' ? 'Dev Access' : 'Authorized User') : 'NexuCore AI'}
                     </span>
+                    {msg.role === 'model' && messages.length > 1 && (
+                      <button 
+                        onClick={() => exportToPDF(msg.text, conversations.find(c => c.id === currentConversationId)?.title || 'NexuCore AI Response')}
+                        className="p-1 rounded hover:bg-zinc-800 text-zinc-600 hover:text-red-400 transition-colors"
+                        title="Export to PDF"
+                      >
+                        <FileDown className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </motion.div>
